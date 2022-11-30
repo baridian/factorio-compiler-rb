@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require './lex_token.rb'
+require './terminal'
 
 # lexical analyzer.
 # pulls lex rules from lexdefs.txt
@@ -11,7 +11,7 @@ class Lex
     @rules_hash = {}
     lines = file.split("\n")
     lines.each do |line|
-      pattern = Regexp.new '^' + line.match(%r{(?<==/).*(?=/\w*$)}).to_s
+      pattern = Regexp.new "^#{line.match(%r{(?<==/).*(?=/\w*$)})}"
       @rules_hash[line.match(/\w+(?==)/).to_s] = pattern
     end
   end
@@ -28,7 +28,6 @@ class Lex
     to_return = []
     # reduce down the string until emtpy
     while file_copy != ''
-      puts file_copy
       # rules that match the input
       matches = []
       # check each rule, add if match
@@ -57,7 +56,7 @@ class Lex
         file_copy = file_copy[match_length..] # chop the match off the front
 
         # generate and add the lex token to the stream
-        to_return << LexToken.new(matches[0][1], matches[0][0])
+        to_return << Terminal.new(matches[0][1], matches[0][0])
       end
     end
     to_return
