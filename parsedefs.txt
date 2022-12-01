@@ -1,6 +1,5 @@
 __FINAL__=expression
 expression=expression,plus,term
-expression=expression,minus,term
 expression=term
-term=factor
-factor=number
+term=term,times,number
+term=number

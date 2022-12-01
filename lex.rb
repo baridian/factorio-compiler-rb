@@ -11,6 +11,12 @@ class Lex
     @rules_hash = {}
     lines = file.split("\n")
     lines.each do |line|
+      # if the line has an assignment but an invalid lValue
+      if line.match?(/=/) && !line.match?(/\w+(?==)/)
+        # must have valid lValue
+        raise "ERROR: cannot parse '#{line}': unrecognized lValue"
+      end
+
       pattern = Regexp.new "^#{line.match(%r{(?<==/).*(?=/\w*$)})}"
       @rules_hash[line.match(/\w+(?==)/).to_s] = pattern
     end
@@ -55,10 +61,14 @@ class Lex
         match_length = matches[0][:string].length
         file_copy = file_copy[match_length..] # chop the match off the front
 
-        # generate and add the lex token to the stream
-        to_return << Terminal.new(matches.first[:key], matches.first[:string])
+        # unless its an ignore statement
+        unless matches.first[:key] == '__IGNORE__'
+          # add the lexeme to the stream
+          to_return << Terminal.new(matches.first[:key], matches.first[:string])
+        end
       end
     end
-    to_return
+    to_return << Terminal.new("$", "")
+    to_return 
   end
 end

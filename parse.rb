@@ -2,6 +2,7 @@
 
 require './terminal'
 require './nonterminal'
+require './rule'
 
 # parse is an implementation
 # of a parser generator and an
@@ -24,51 +25,71 @@ class Parse
     @t_syms = rules.map(&:rhts).flatten.uniq - @nt_syms
     @t_syms << :"$" # add special end of sequence lexeme
     @table = generate_table(rules)
-    puts table
   end
 
   # generate the AST from the input sequence
   def run(terminals)
+    terminals_copy = terminals.clone
+    stack = []
+    lookahead = terminals_copy.first
+    done = false
+    state = 0
 
+    # while done marker not encountered
+    until done
+      # lexeme on the top of the stack (skips ints)
+      top_lexeme = last_lexeme(stack)
+      # if the top lexeme is a nonterminal and there's an action for it
+      if top_lexeme && (( @nt_syms.include? top_lexeme.type ) && table.action(state, top_lexeme.type).type )
+        action = table.action(state, top_lexeme.type)
+      else # top lexeme is not a nonterminal or there's no action
+        action = table.action(state, lookahead.type)
+      end
+
+      # execute the action
+      case action.type
+      when :GOTO
+        stack.push state
+        state = action.value
+      when :SHIFT
+        stack.push terminals_copy.shift, state
+        lookahead = terminals_copy.first
+        state = action.value
+      when :REDUCE
+        reduce_rule = action.value
+        # reverse the rhts so they can be compared against the stack as its popped off
+        reversed_rhts = reduce_rule.rhts.reverse
+        # children are loaded as theyre popped off, hence theyre reversed
+        reversed_children = []
+        # for each of the symbols we need for the rule (in reverse order)
+        next_state = nil
+        reversed_rhts.each do |next_to_pop|
+          # pop off the ints and set the next state to the one lowest in the stack
+          next_state = stack.pop while stack.last.is_a? Integer
+          # error if rule doesnt match stack (this should never happen)
+          unless stack.last.type == next_to_pop
+            raise "ERROR: tried to apply #{rule}, failed at #{next_to_pop.type}"
+          end
+
+          # add the symbol to children and remove from the stack
+          reversed_children << stack.pop
+        end
+        # create the new nonterminal from the rule and push to the stack
+        stack.push NonTerminal.new(reduce_rule, reversed_children.reverse)
+        state = next_state
+      when :DONE
+        done = true
+      when nil
+        raise "invalid lexeme sequence: #{ stack.keep_if { |item| item.is_a? Lexeme }}"
+      end
+    end
+    # only the final lexeme is on the stack; return it
+    stack.first
   end
 
   private
 
   attr_reader :nt_syms, :t_syms, :table
-
-  # a rule contains a left hand term, a lexeme to reduce to,
-  # and right hand terms, that list the lexemes
-  # and the order needed to generate the lht
-  class Rule
-    attr_reader :lht, :rhts
-
-    # create a new rule.
-    # lht is a non-determinant lexeme symbol
-    # rhts is an array of lexeme symbols
-    def initialize(lht, rhts)
-      raise "Invalid init for Rule: #{lht}, #{rhts}" unless lht.is_a?(Symbol) && rhts.is_a?(Array)
-
-      @lht = lht
-      @rhts = rhts
-    end
-
-    def to_s
-      "< lht #{lht}>, <rhts #{rhts}>"
-    end
-
-    def ==(other)
-      other.is_a?(Rule) && other.lht == lht && other.rhts == rhts
-    end
-
-    # wrapper of ==
-    def eql?(other)
-      self == other
-    end
-
-    def hash
-      to_s.hash
-    end
-  end
 
   # input: string that contains the content of the rule file
   # output: [rule, rule, ...]
@@ -148,7 +169,7 @@ class Parse
     # get the action
     def action(row_num, lexeme)
       unless terminals.include?(lexeme) || nonterminals.include?(lexeme)
-        raise "unrecognized lexeme #{lexeme}"
+        raise "unrecognized lexeme #{lexeme}. valid terminals = #{terminals}"
       end
 
       row = row(row_num)
@@ -253,6 +274,8 @@ class Parse
             if index == rule.rhts.length - 1
               # add the lht to find_follows_for unless its already there
               find_follows_for << rule.lht unless find_follows_for.include? rule.lht
+              # if the lht is __FINAL__ add $ to to_return unless its already there
+              to_return << :"$" unless to_return.include? :"$"
             # else if next symbol is terminal
             elsif @t_syms.include?(rule.rhts[index + 1])
               # add if not already there
@@ -290,6 +313,8 @@ class Parse
     to_return.each_key do |nonterminal|
       to_return[nonterminal] = find_follow_for_symbol(nonterminal, starts, rules)
     end
+
+    to_return[:__FINAL__] << :"$"
 
     to_return
   end
@@ -527,7 +552,7 @@ class Parse
 
   # try to create reduce action for the pair that the cursor is on
   # raise errors if there's a table collision
-  def attempt_reduce(table, context, cursor, rules)
+  def generate_reduce(table, context, cursor, rules)
     # get the terminals that can follow
     # the completed expression
     follows = follows(rules)[context.rule(cursor).lht]
@@ -549,7 +574,7 @@ class Parse
 
   # try to create shift action for the pair the cursor is on
   # raise errors if there's a table collision
-  def attempt_shift(table, context, cursor, rules)
+  def generate_shift(table, context, cursor, rules)
     next_symbol = context.next_sym(cursor)
     # generate the new set of rulePoses for the state after the shift
     next_state_context = context.rposs_for_next_state(cursor, rules)
@@ -578,7 +603,7 @@ class Parse
 
   # try to create goto action for the pair the cursor is on
   # raise errors if there's a table collision
-  def attempt_goto(table, context, cursor, rules)
+  def generate_goto(table, context, cursor, rules)
     next_symbol = context.next_sym(cursor)
     # generate the new set of rulePoses for the state after the shift
     next_state_context = context.rposs_for_next_state(cursor, rules)
@@ -629,14 +654,21 @@ class Parse
       # reached end of rule?
       next_sym = context.next_sym(cursor)
       if next_sym == :complete
-        attempt_reduce(to_return, context, cursor, rules)
+        generate_reduce(to_return, context, cursor, rules)
       elsif t_syms.include? next_sym # if next sym is a terminal
-        attempt_shift(to_return, context, cursor, rules)
+        generate_shift(to_return, context, cursor, rules)
       else # next sym is a non-terminal
-        attempt_goto(to_return, context, cursor, rules)
+        generate_goto(to_return, context, cursor, rules)
       end
       cursor = context.advance(cursor)
     end
+    to_return
+  end
+
+  # returns the last lexeme found in the array
+  def last_lexeme(arr)
+    to_return = nil
+    arr.each { |element| to_return = element if element.is_a? Lexeme }
     to_return
   end
 end

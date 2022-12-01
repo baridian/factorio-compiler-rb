@@ -20,6 +20,6 @@ class Terminal < Lexeme
   end
 
   def to_s
-    "#{@type} = #{@content}"
+    "<type: #{type}, content: #{content}>"
   end
 end
