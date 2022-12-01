@@ -66,7 +66,7 @@ class Parse
     end
 
     def hash
-      return to_s.hash
+      to_s.hash
     end
   end
 
@@ -123,7 +123,7 @@ class Parse
     end
 
     def hash
-      return to_s.hash
+      to_s.hash
     end
   end
 
@@ -195,20 +195,24 @@ class Parse
   end
 
   # takes the rules array and a symbol
-  # recursively finds all terminals that can start for the given
+  # finds all terminals that can start for the given
   # symbol. nt_sym = nonterminal symbol
   def find_start_for_symbol(nt_sym, rules)
     to_return = []
-    rules.each do |rule|
-      if rule.lht == nt_sym
-        if t_syms.include? rule.rhts.first # add to the starts for this sym
-          to_return << rule.rhts.first
-        elsif nt_sym != rule.rhts.first # is an nt and not recursive. Add its start symbols
-          to_return += find_start_for_symbol(rule.rhts.first, rules)
+    find_starts_for = [nt_sym]
+
+    find_starts_for.each do |find_start_for|
+      rules.each do |rule|
+        if rule.lht == find_start_for
+          if t_syms.include? rule.rhts.first
+            to_return << rule.rhts.first
+          elsif !find_starts_for.include? rule.rhts.first
+            find_starts_for << rule.rhts.first
+          end
         end
       end
     end
-    to_return.uniq # dont need duplicate terminals
+    to_return
   end
 
   # input: [rule, rule, ...]
@@ -233,32 +237,39 @@ class Parse
   # takes a symbol to find all follows for, a hash of symbols=> valid Lmost terminals,
   # and the rules array.
   # generates an array of all the valid following terminals.
-  def find_follows_for_symbol(nt_sym, starts, rules)
+  def find_follow_for_symbol(nt_sym, starts, rules)
     to_return = []
-    rules.each do |rule|
-      rule.rhts.each_with_index do |rule_sym, index|
-        if rule_sym == nt_sym
-          if index < rule.rhts.length - 1 # if not the last symbol
-            if t_syms.include?(rule.rhts[index + 1]) # if next symbol is a terminal
-              to_return << rule.rhts[index + 1] # add it
-            else # is a nonTerminal
-              to_return += starts[rule.rhts[index + 1]] # add the lmost valid terminals
-            end
-          else # is the last symbol in the rule
-            unless rule.lht != rule.rhts[index]
-              raise "ERROR: rightmost recursion cannot be parsed. Check '#{rule.lht}'"
-            end
+    find_follows_for = [nt_sym]
 
-            # so add the follows of the nt that it tails
-            to_return += find_follows_for_symbol(rule.lht, starts, rules)
+    # find follows for all the symbols in the array
+    find_follows_for.each do |find_follow_for|
+      # scan array once for each symbol
+      rules.each do |rule|
+        # scan the rule rhts for the symbol to follow
+        rule.rhts.each_with_index do |rule_sym, index|
+          # if the current symbol is one that follows are needed for
+          if rule_sym == find_follow_for
+            # if end of rule
+            if index == rule.rhts.length - 1
+              # add the lht to find_follows_for unless its already there
+              find_follows_for << rule.lht unless find_follows_for.include? rule.lht
+            # else if next symbol is terminal
+            elsif @t_syms.include?(rule.rhts[index + 1])
+              # add if not already there
+              to_return << rule.rhts[index + 1] unless to_return.include?(rule.rhts[index + 1])
+            # else next symbol is nonterminal
+            else
+              # for each of its starts
+              starts[rule.rhts[index + 1]].each do |t_follow|
+                # add if not already there
+                to_return << t_follow unless to_return.include? t_follow
+              end
+            end
           end
         end
       end
     end
-    # __FINAL__ can be followed by $
-    to_return << :"$" if nt_sym == :__FINAL__
-
-    to_return.uniq # dont need duplicates
+    to_return
   end
 
   # input: [rule, rule, ...]
@@ -277,7 +288,7 @@ class Parse
 
     # call recursive function on each key
     to_return.each_key do |nonterminal|
-      to_return[nonterminal] = find_follows_for_symbol(nonterminal, starts, rules)
+      to_return[nonterminal] = find_follow_for_symbol(nonterminal, starts, rules)
     end
 
     to_return
@@ -304,40 +315,29 @@ class Parse
       @position = position
     end
 
-    # expands out the RulePos. wrapped by expand(rules)
-    # Visited is passed in as [] and used
-    # to track visited RulePoses, to prevent infinite looping and invalid grammar
-    # returns [RulePos, RulePos, ...]
-    def expand_recursive(rules, visited)
+    # expands out the RulePos
+    # finds all the rules that define the next symbol,
+    # generates their rule pos and attempts to expand them
+    # ignores grammatical recursion
+    # returns an array of RulePos that form the valid expansion
+    def expand(rules)
       to_return = [self]
 
-      visited = [self] if visited == []
+      get_rules_for = [next_sym]
 
-      if next_sym != :complete
+      get_rules_for.each do |symbol_to_expand|
         rules.each do |rule|
-          if rule.lht == next_sym # if the rule defines the expansion symbol
-            new_rule_pos = RulePos.new(rule, 0)
-
-            if visited.include?(new_rule_pos) # if this pair has been encountered
-              if position != 0 || rule != rule() # if this is not self-recursion
-                # then this is a loop
-                raise "ERROR: loop detected in parser grammar: check lexeme '#{next_sym}'"
-              end
-            else
-              to_return << new_rule_pos # it's a valid expansion to add
-              expansion = new_rule_pos.expand_recursive(rules, visited + [new_rule_pos])
-              to_return = (to_return + expansion).uniq # expand that symbol as well
-            end
+          # if this rule defines a symbol needed to expand
+          if rule.lht == symbol_to_expand
+            # need to find rules that expand that symbol
+            get_rules_for << rule.rhts.first unless get_rules_for.include? rule.rhts.first
+            # add the rule at position 0 to the to_return
+            to_return << RulePos.new(rule, 0)
           end
         end
       end
-      to_return
-    end
 
-    # expands out the RulePos.
-    # returns an array of RulePos that form the valid expansion
-    def expand(rules)
-      expand_recursive(rules, [])
+      to_return
     end
 
     # gets the next symbol as referenced by the position
