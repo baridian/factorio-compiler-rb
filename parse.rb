@@ -182,10 +182,10 @@ class Parse
     def new_empty_row
       to_return = { terminals: {}, nonterminals: {} }
       terminals.each do |terminal|
-        to_return[:terminals][terminal] = Action.new()
+        to_return[:terminals][terminal] = Action.new
       end
       nonterminals.each do |nonterminal|
-        to_return[:nonterminals][nonterminal] = Action.new()
+        to_return[:nonterminals][nonterminal] = Action.new
       end
 
       to_return
@@ -245,13 +245,17 @@ class Parse
               to_return += starts[rule.rhts[index + 1]] # add the lmost valid terminals
             end
           else # is the last symbol in the rule
+            unless rule.lht != rule.rhts[index]
+              raise "ERROR: rightmost recursion cannot be parsed. Check '#{rule.lht}'"
+            end
+
             # so add the follows of the nt that it tails
             to_return += find_follows_for_symbol(rule.lht, starts, rules)
           end
         end
       end
     end
-    #__FINAL__ can be followed by $
+    # __FINAL__ can be followed by $
     to_return << :"$" if nt_sym == :__FINAL__
 
     to_return.uniq # dont need duplicates
@@ -378,7 +382,7 @@ class Parse
     intermediate = to_return.clone
 
     intermediate.each do |rule_pos| # expand each rule w/ position
-      to_return = to_return + rule_pos.expand(rules) # append the expanded rules
+      to_return += rule_pos.expand(rules) # append the expanded rules
     end
 
     to_return.uniq # return the full expansion of *__FINAL__
@@ -474,7 +478,7 @@ class Parse
 
       # expand the new rposs
       intermediate.each do |rule_pos| # expand each rule w/ position
-        to_return = to_return + rule_pos.expand(rules) # append the expanded rules
+        to_return += rule_pos.expand(rules) # append the expanded rules
       end
 
       to_return.uniq
@@ -489,6 +493,7 @@ class Parse
         if rposs_for_a_state == rposs # if state matches
           # raise error if a match has already been found
           raise "found duplicate states: #{to_return},#{state_num}" unless to_return.nil?
+
           # otherwise, to_return is the state found
           to_return = state_num
         end
@@ -500,6 +505,7 @@ class Parse
     # returns the number of the new state
     def append_state(rposs)
       raise "tried to add new state but found #{rposs.class}" unless rposs.is_a? Array
+      
       rposs.each do |rpos|
         raise "tried to add new state but found #{rpos.class} in array" unless rpos.is_a? RulePos
       end
@@ -612,24 +618,22 @@ class Parse
     context.add_rule_poss(0, state_zero_context(rules))
 
     # add special DONE action
-    to_return.action(0,:"$").type = :DONE
+    to_return.action(0, :"$").type = :DONE
 
     # generate rest of table
 
     # generator start point
-    cursor = { state: 0, pair: 0}
+    cursor = { state: 0, pair: 0 }
     # while cursor still references a rulePos pair
     while cursor != :no_more_pairs
       # reached end of rule?
       next_sym = context.next_sym(cursor)
       if next_sym == :complete
         attempt_reduce(to_return, context, cursor, rules)
-      else # next symbol is something other than complete
-        if t_syms.include? next_sym # if next sym is a terminal
-          attempt_shift(to_return, context, cursor, rules)
-        else # next sym is a non-terminal
-          attempt_goto(to_return, context, cursor, rules)
-        end
+      elsif t_syms.include? next_sym # if next sym is a terminal
+        attempt_shift(to_return, context, cursor, rules)
+      else # next sym is a non-terminal
+        attempt_goto(to_return, context, cursor, rules)
       end
       cursor = context.advance(cursor)
     end
