@@ -20,8 +20,9 @@ class Parse
   # generate the parse table from the rule file
   def initialize(rule_file)
     rules = extract_rules(rule_file)
-    @nt_syms = rules.map { |rule| rule[0] }.uniq
-    @t_syms = rules.flatten.uniq - nt_syms
+    @nt_syms = rules.map(&:lht).uniq
+    @t_syms = rules.map(&:rhts).flatten.uniq - @nt_syms
+    @t_syms << :"$" # add special end of sequence lexeme
     @table = generate_table(rules)
     puts table
   end
@@ -45,18 +46,27 @@ class Parse
     # lht is a non-determinant lexeme symbol
     # rhts is an array of lexeme symbols
     def initialize(lht, rhts)
-      raise ArgumentError, "Invalid init for Rule: #{lht}, #{rhts}" unless lht.is_a?(Symbol) && rhts.is_a?(Array)
+      raise "Invalid init for Rule: #{lht}, #{rhts}" unless lht.is_a?(Symbol) && rhts.is_a?(Array)
 
       @lht = lht
       @rhts = rhts
     end
 
     def to_s
-      "#{lht}, #{rhts}"
+      "< lht #{lht}>, <rhts #{rhts}>"
     end
 
     def ==(other)
       other.is_a?(Rule) && other.lht == lht && other.rhts == rhts
+    end
+
+    # wrapper of ==
+    def eql?(other)
+      self == other
+    end
+
+    def hash
+      return to_s.hash
     end
   end
 
@@ -67,9 +77,9 @@ class Parse
     lines = rule_file.split "\n"
     lines.each do |line|
       lht = line.match(/^\w+(?==)/).to_s
-      rht = line.match(/(?<==).*?(?=\s+$)/).to_s
+      rht = line.match(/(?<==).*(?=\s*$)/).to_s
       rhts = rht.split(',')
-      to_return << Rule.new(lht.to_sym, rhts.each(&:to_sym))
+      to_return << Rule.new(lht.to_sym, rhts.map(&:to_sym))
     end
     to_return
   end
@@ -94,17 +104,26 @@ class Parse
 
     # check the type and set it
     def type=(type)
-      raise ArgumentError, "unknown action type #{type}. Must be #{valid_types}" unless valid_types.include?(type)
+      raise  "unknown action type #{type}. Must be #{valid_types}" unless valid_types.include?(type)
 
       @type = type
     end
 
     def to_s
-      "#{type}, #{value}"
+      "< type #{type}>, < value #{value}>"
     end
 
     def ==(other)
       other.is_a?(Action) && other.type == type && other.value == value
+    end
+
+    # wrapper of ==
+    def eql?(other)
+      self == other
+    end
+
+    def hash
+      return to_s.hash
     end
   end
 
@@ -129,7 +148,7 @@ class Parse
     # get the action
     def action(row_num, lexeme)
       unless terminals.include?(lexeme) || nonterminals.include?(lexeme)
-        raise ArgumentError, "unrecognized lexeme #{lexeme}"
+        raise "unrecognized lexeme #{lexeme}"
       end
 
       row = row(row_num)
@@ -145,7 +164,7 @@ class Parse
     end
 
     def to_s
-      "#{terminals} #{nonterminals} #{table}"
+      "< terminals #{terminals}>,  < nonterminals #{nonterminals}>, < table #{table}>"
     end
 
     private
@@ -153,7 +172,7 @@ class Parse
     # returns a row from the table
     def row(row_num)
       unless row_num >= 0 && row_num < table.length
-        raise RangeError, "tried to get row #{row_num} but table only has #{table.length} rows"
+        raise "tried to get row #{row_num} but table only has #{table.length} rows"
       end
 
       table[row_num]
@@ -168,6 +187,8 @@ class Parse
       nonterminals.each do |nonterminal|
         to_return[:nonterminals][nonterminal] = Action.new()
       end
+
+      to_return
     end
 
     attr_reader :terminals, :nonterminals, :table
@@ -182,7 +203,7 @@ class Parse
       if rule.lht == nt_sym
         if t_syms.include? rule.rhts.first # add to the starts for this sym
           to_return << rule.rhts.first
-        else # is an nt, so we need its starting terminals
+        elsif nt_sym != rule.rhts.first # is an nt and not recursive. Add its start symbols
           to_return += find_start_for_symbol(rule.rhts.first, rules)
         end
       end
@@ -217,7 +238,7 @@ class Parse
     rules.each do |rule|
       rule.rhts.each_with_index do |rule_sym, index|
         if rule_sym == nt_sym
-          if index < rule.rhts.length # if not the last symbol
+          if index < rule.rhts.length - 1 # if not the last symbol
             if t_syms.include?(rule.rhts[index + 1]) # if next symbol is a terminal
               to_return << rule.rhts[index + 1] # add it
             else # is a nonTerminal
@@ -230,6 +251,9 @@ class Parse
         end
       end
     end
+    #__FINAL__ can be followed by $
+    to_return << :"$" if nt_sym == :__FINAL__
+
     to_return.uniq # dont need duplicates
   end
 
@@ -266,14 +290,50 @@ class Parse
     # rule must be a Rule, position is an int
     def initialize(rule, position)
       unless rule.is_a?(Rule) && position.is_a?(Integer)
-        raise ArgumentError, "invalid init for RulePos: #{rule}, #{position}"
+        raise "invalid init for RulePos: #{rule}, #{position}"
       end
       unless position >= 0 && position <= rule.rhts.length
-        raise RangeError, "position out of bounds: #{rule}, #{position}"
+        raise "position out of bounds: #{rule}, #{position}"
       end
 
       @rule = rule
-      @positon = position
+      @position = position
+    end
+
+    # expands out the RulePos. wrapped by expand(rules)
+    # Visited is passed in as [] and used
+    # to track visited RulePoses, to prevent infinite looping and invalid grammar
+    # returns [RulePos, RulePos, ...]
+    def expand_recursive(rules, visited)
+      to_return = [self]
+
+      visited = [self] if visited == []
+
+      if next_sym != :complete
+        rules.each do |rule|
+          if rule.lht == next_sym # if the rule defines the expansion symbol
+            new_rule_pos = RulePos.new(rule, 0)
+
+            if visited.include?(new_rule_pos) # if this pair has been encountered
+              if position != 0 || rule != rule() # if this is not self-recursion
+                # then this is a loop
+                raise "ERROR: loop detected in parser grammar: check lexeme '#{next_sym}'"
+              end
+            else
+              to_return << new_rule_pos # it's a valid expansion to add
+              expansion = new_rule_pos.expand_recursive(rules, visited + [new_rule_pos])
+              to_return = (to_return + expansion).uniq # expand that symbol as well
+            end
+          end
+        end
+      end
+      to_return
+    end
+
+    # expands out the RulePos.
+    # returns an array of RulePos that form the valid expansion
+    def expand(rules)
+      expand_recursive(rules, [])
     end
 
     # gets the next symbol as referenced by the position
@@ -288,43 +348,21 @@ class Parse
     end
 
     def to_s
-      "#{rule}, #{positon}"
+      "<rule #{rule}>, <position #{position}>"
     end
 
     def ==(other)
       other.is_a?(RulePos) && other.rule == rule && other.position == position
     end
-  end
 
-  # expands out a RulePos. Visited is passed in as [] and used
-  # to track visited RulePoses, to prevent infinite looping and invalid grammar
-  # returns [RulePos, RulePos, ...]
-  def expand(to_expand, rules, visited)
-    to_return = [to_expand]
-
-    visited = [to_expand] if visited == []
-
-    if to_expand.next_sym != :complete
-      rules.each do |rule|
-        if rule.lht == to_expand.next_sym # if the rule defines the expansion symbol
-          new_rule_pos = RulePos.new(rule, 0)
-
-          if visited.include?(new_rule_pos) # if this pair has been encountered
-            if to_expand.position != 0 || to_expand.rule.lht != to_expand.next_sym # if this is not self-recursion
-              # then we've found 2 paths to 1 rule
-              puts 'ERROR: ambiguity detected in parser grammar definition'
-            end
-          else
-            to_return << new_rule_pos # it's a valid expansion to add
-            visited << new_rule_pos # visited it
-            expansion = expand(new_rule_pos, rules, visited)
-            to_return = (to_return + expansion).uniq # expand that symbol as well
-            visited = (visited + expansion).uniq
-          end
-        end
-      end
+    # wrapper of ==
+    def eql?(other)
+      self == other
     end
-    to_return
+
+    def hash
+      return to_s.hash
+    end
   end
 
   # input: [rule, rule, ...]
@@ -340,7 +378,7 @@ class Parse
     intermediate = to_return.clone
 
     intermediate.each do |rule_pos| # expand each rule w/ position
-      to_return = (to_return + expand(rule_pos, rules, [])) # append the expanded rules
+      to_return = to_return + rule_pos.expand(rules) # append the expanded rules
     end
 
     to_return.uniq # return the full expansion of *__FINAL__
@@ -374,8 +412,8 @@ class Parse
     # returns the rule that the current cursor is referencing.
     # ignores position.
     def rule(cursor)
-      raise RangeError "cursor #{cursor} OOB" unless cursor[:state] < data.length
-      raise RangeError "cursor #{cursor} OOB" unless cursor[:pair] < data[cursor[:state]].length
+      raise "cursor #{cursor} OOB" unless cursor[:state] < data.length
+      raise "cursor #{cursor} OOB" unless cursor[:pair] < data[cursor[:state]].length
 
       data[cursor[:state]][cursor[:pair]].rule
     end
@@ -395,8 +433,8 @@ class Parse
     # returns the next symbol for the rule/pos pointed to by cursor.
     # returns :complete if at the end of a rule.
     def next_sym(cursor)
-      raise RangeError "cursor #{cursor} OOB" unless cursor[:state] < data.length
-      raise RangeError "cursor #{cursor} OOB" unless cursor[:pair] < data[cursor[:state]].length
+      raise "cursor #{cursor} OOB" unless cursor[:state] < data.length
+      raise "cursor #{cursor} OOB" unless cursor[:pair] < data[cursor[:state]].length
 
       data[cursor[:state]][cursor[:pair]].next_sym
     end
@@ -405,7 +443,7 @@ class Parse
     # as outlined by the context info.
     def advance(cursor)
       if more_rules?(cursor)
-        if cursor[:pair] < data[cursor[:state]].length
+        if cursor[:pair] < data[cursor[:state]].length - 1
           cursor[:pair] += 1
         else
           cursor[:state] += 1
@@ -427,19 +465,16 @@ class Parse
       # find all the rposs pointing to the same symbol
       # as the cursor
       data[cursor[:state]].each do |rule_pos|
-        to_return << rule_pos.clone if rule_pos.next_sym == next_sym
-      end
-
-      # advance the rposs
-      to_return.each do |rule_pos|
-        rule_pos.position += 1
+        if rule_pos.next_sym == next_sym
+          to_return << RulePos.new(rule_pos.rule, rule_pos.position + 1)
+        end
       end
 
       intermediate = to_return.clone
 
       # expand the new rposs
       intermediate.each do |rule_pos| # expand each rule w/ position
-        to_return = (to_return + expand(rule_pos, rules, [])) # append the expanded rules
+        to_return = to_return + rule_pos.expand(rules) # append the expanded rules
       end
 
       to_return.uniq
@@ -464,14 +499,19 @@ class Parse
     # creates a new state
     # returns the number of the new state
     def append_state(rposs)
-      raise ArgumentError, "tried to add new state but found #{rposs.class}" unless rposs.is_a? Array
+      raise "tried to add new state but found #{rposs.class}" unless rposs.is_a? Array
       rposs.each do |rpos|
-        raise ArgumentError, "tried to add new state but found #{rpos.class} in array" unless rpos.is_a? RulePos
+        raise "tried to add new state but found #{rpos.class} in array" unless rpos.is_a? RulePos
       end
 
       data << rposs
       data.length - 1
     end
+
+    def to_s
+      "< data #{data} >"
+    end
+
     private
 
     # data is internally implemented as a 2D array of RulePos objects.
@@ -506,7 +546,7 @@ class Parse
   def attempt_shift(table, context, cursor, rules)
     next_symbol = context.next_sym(cursor)
     # generate the new set of rulePoses for the state after the shift
-    next_state_context = context.rposs_next_state(cursor, rules)
+    next_state_context = context.rposs_for_next_state(cursor, rules)
     # find the matching state (nil if not found)
     next_state_num = context.next_state(next_state_context)
 
@@ -535,7 +575,7 @@ class Parse
   def attempt_goto(table, context, cursor, rules)
     next_symbol = context.next_sym(cursor)
     # generate the new set of rulePoses for the state after the shift
-    next_state_context = context.rposs_next_state(cursor, rules)
+    next_state_context = context.rposs_for_next_state(cursor, rules)
     # find the matching state (nil if not found)
     next_state_num = context.next_state(next_state_context)
 
@@ -570,8 +610,9 @@ class Parse
     # state 0 is the start of __FINAL__
     to_return.add_row
     context.add_rule_poss(0, state_zero_context(rules))
-    # add special DONE exit flag
-    to_return.action(0, :"$").type = :DONE
+
+    # add special DONE action
+    to_return.action(0,:"$").type = :DONE
 
     # generate rest of table
 

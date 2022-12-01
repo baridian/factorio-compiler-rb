@@ -1,6 +1,7 @@
-__FINAL__=expression,$
-__FINAL__=expression,whitespace,$
+__FINAL__=expression
+__FINAL__=expression,whitespace
 expression=expression,plus,term
 expression=term
-term=whitespace, num
-term=num
+expression=number
+term=number
+term=whitespace,number

@@ -9,3 +9,4 @@ lexemes = lexer.run(File.read('test.txt'))
 
 parse_defs = File.read 'parsedefs.txt'
 parser = Parse.new parse_defs
+puts "DONE!"
