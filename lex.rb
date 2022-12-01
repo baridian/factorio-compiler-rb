@@ -34,7 +34,7 @@ class Lex
       @rules_hash.each_key do |key|
         pattern = @rules_hash[key]
 
-        matches << [file_copy.match(pattern).to_s, key] if file_copy.match? pattern
+        matches << { string: file_copy.match(pattern).to_s, key: key } if file_copy.match? pattern
       end
 
       # if invalid match
@@ -42,7 +42,7 @@ class Lex
         if matches.length > 1
           puts 'ERROR: Ambiguous input. Multiple rules can be applied:'
           matches.each do |match|
-            puts "#{match[0]} => #{match[1]}"
+            puts "#{match[:string]} => #{match[:key]}"
           end
         else
           puts 'ERROR: No rules for such input:'
@@ -52,11 +52,11 @@ class Lex
         to_return = nil
         file_copy = ''
       else # valid input
-        match_length = matches[0][0].length
+        match_length = matches[0][:string].length
         file_copy = file_copy[match_length..] # chop the match off the front
 
         # generate and add the lex token to the stream
-        to_return << Terminal.new(matches[0][1], matches[0][0])
+        to_return << Terminal.new(matches.first[:key], matches.first[:string])
       end
     end
     to_return
