@@ -2,11 +2,15 @@
 
 require './lex'
 require './parse'
+require './ebnf/ebnfcode'
 
-lex_defs = File.read 'lexdefs.txt'
+# convert bnf style input to internally defined
+# basic backhaus-naur form
+lex_defs = File.read 'ebnf/lexdefs.txt'
 lexer = Lex.new lex_defs
-lexemes = lexer.run(File.read('test.txt'))
-parse_defs = File.read 'parsedefs.txt'
+lexemes = lexer.run(File.read('parsedef.bnf'))
+
+parse_defs = File.read 'ebnf/parsedefs.txt'
 parser = Parse.new parse_defs
-final_lexeme = parser.run(lexemes)
-puts final_lexeme
+ast = parser.run(lexemes)
+puts EbnfCode.new(ast)

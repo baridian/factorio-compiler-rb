@@ -15,6 +15,12 @@ class Lex
       if line.match?(/=/) && !line.match?(/\w+(?==)/)
         # must have valid lValue
         raise "ERROR: cannot parse '#{line}': unrecognized lValue"
+      elsif line.match?(/\(\?<=/)
+        puts 'each terminal consumes all the string in front of it, and'
+        puts 'each terminal tries to match from the start of the line'
+        puts 'this functionality plus lookahead allows for effective'
+        puts 'look behind.'
+        raise "ERROR: cannot parse '#{line}': look behind unsupported"
       end
 
       pattern = Regexp.new "^#{line.match(%r{(?<==/).*(?=/\w*$)})}"
@@ -30,7 +36,7 @@ class Lex
   # if anything other than exactly one matches, generate and error and abort.
   # if only one matches, create the token and add to to_return
   def run(file)
-    file_copy = file.clone
+    file_copy = file.clone.gsub("\n","")
     to_return = []
     # reduce down the string until emtpy
     while file_copy != ''
@@ -48,12 +54,12 @@ class Lex
         if matches.length > 1
           puts 'ERROR: Ambiguous input. Multiple rules can be applied:'
           matches.each do |match|
-            puts "#{match[:string]} => #{match[:key]}"
+            puts "'#{match[:string]}' => #{match[:key]}"
           end
         else
           puts 'ERROR: No rules for such input:'
-          puts file_copy.match(/.*/).to_s
         end
+        puts "^#{file_copy.match(/.*/).to_s}"
         puts 'please check input and/or lexer rules'
         to_return = nil
         file_copy = ''

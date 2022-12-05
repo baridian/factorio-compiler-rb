@@ -1,5 +1,0 @@
-__FINAL__=expression
-expression=expression,plus,term
-expression=term
-term=term,times,number
-term=number

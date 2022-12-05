@@ -1,4 +1,0 @@
-number=/[0-9]+/
-plus=/\+/
-times=/\*/
-__IGNORE__=/\s+/

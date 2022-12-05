@@ -80,7 +80,13 @@ class Parse
       when :DONE
         done = true
       when nil
-        raise "invalid lexeme sequence: #{ stack.keep_if { |item| item.is_a? Lexeme }}"
+        raise "invalid lexeme: #{lookahead}" unless nt_syms.include? lookahead
+        raise %q{
+              invalid lexeme sequence.
+              state = #{state}
+              lookahead = #{lookahead}
+              stack = #{ stack.keep_if { |item| item.is_a? Lexeme }}
+        }
       end
     end
     # only the final lexeme is on the stack; return it
