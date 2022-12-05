@@ -75,11 +75,11 @@ class EbnfCode
           end
           break # already did all the terms after
         else # term.children.first.type == :lrepeat
-          repeat_term = "#{reformat(flatten_rht(term.children[1])).reverse.join("").gsub(/[^\w]/,"")}"
+          repeat_term = "#{reformat(flatten_rht(term.children[1])).flatten.reverse.join('').gsub(/[^\w]/,'')}s"
           primitive_call << repeat_term
           reformat(flatten_rht(term.children[1])).each do |repeat_prim|
-            to_return << (["__repeat__",repeat_term] + repeat_prim)
-            to_return << (["__repeat__"] + repeat_prim)
+            to_return << (['__repeat__',repeat_term] + repeat_prim.reverse)
+            to_return << (['__repeat__'] + repeat_prim.reverse)
           end
         end
       else

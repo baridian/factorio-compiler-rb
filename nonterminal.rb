@@ -30,6 +30,6 @@ class NonTerminal < Lexeme
   end
 
   def to_s
-    "< rule: #{rule}, children: #{children} >"
+    "< rule: #{rule}, type: '#{type}', children: #{children} >"
   end
 end
