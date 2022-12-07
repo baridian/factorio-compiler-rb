@@ -17,9 +17,18 @@ class Terminal < Lexeme
 
     @content = match_data
     @type = rule_name.to_sym
+    @parent = nil
   end
 
   def to_s
     "<type: #{type}, content: #{content}>"
+  end
+
+  def parent
+    super()
+  end
+
+  def parent=(other)
+    super(other)
   end
 end

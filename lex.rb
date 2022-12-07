@@ -12,10 +12,12 @@ class Lex
     lines = file.split("\n")
     lines.each do |line|
       # if the line has an assignment but an invalid lValue
-      if line.match?(/=/) && !line.match?(/\w+(?==)/)
+      unless !line.match?(/=/) || line.match?(/\w+(?==)/)
         # must have valid lValue
         raise "ERROR: cannot parse '#{line}': unrecognized lValue"
-      elsif line.match?(/\(\?<=/)
+      end
+
+      if line.match?(/\(\?<=/)
         puts 'each terminal consumes all the string in front of it, and'
         puts 'each terminal tries to match from the start of the line'
         puts 'this functionality plus lookahead allows for effective'
@@ -36,7 +38,7 @@ class Lex
   # if anything other than exactly one matches, generate and error and abort.
   # if only one matches, create the token and add to to_return
   def run(file)
-    file_copy = file.clone.gsub("\n","")
+    file_copy = file.clone.gsub("\n", '')
     to_return = []
     # reduce down the string until emtpy
     while file_copy != ''
@@ -50,16 +52,9 @@ class Lex
       end
 
       # if invalid match
-      if matches.length != 1
-        if matches.length > 1
-          puts 'ERROR: Ambiguous input. Multiple rules can be applied:'
-          matches.each do |match|
-            puts "'#{match[:string]}' => #{match[:key]}"
-          end
-        else
-          puts 'ERROR: No rules for such input:'
-        end
-        puts "^#{file_copy.match(/.*/).to_s}"
+      if matches.empty?
+        puts 'ERROR: No rules for such input:'
+        puts "^#{file_copy.match(/.*/)}"
         puts 'please check input and/or lexer rules'
         to_return = nil
         file_copy = ''
@@ -74,7 +69,7 @@ class Lex
         end
       end
     end
-    to_return << Terminal.new("$", "")
-    to_return 
+    to_return << Terminal.new('$', '')
+    to_return
   end
 end

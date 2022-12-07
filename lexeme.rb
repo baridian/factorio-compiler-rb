@@ -6,5 +6,11 @@
 # lexemes
 class Lexeme
   # default initializer
-  def initialize() end
+  def initialize() 
+    @parent = nil
+  end
+
+  protected
+
+  attr_accessor :parent
 end

@@ -7,7 +7,7 @@ require './rule'
 # It represents an inner node or the root of the abstract
 # syntax tree. Rules checking is handled entirely by the parser.
 class NonTerminal < Lexeme
-  attr_reader :rule, :children, :type
+  attr_reader :rule, :type, :children
 
   # rule is the reduction rule that has been applied.
   # It's used by the parser when making further reductions.
@@ -16,6 +16,7 @@ class NonTerminal < Lexeme
   # elements of children must be Lexemes.
   def initialize(rule, children)
     super()
+    @parent = nil
     @rule = rule
     @type = rule.lht
     all_lexemes = true
@@ -27,9 +28,18 @@ class NonTerminal < Lexeme
     raise ArgumentError.new, 'non-lexeme items passed to NonTerminal' unless all_lexemes
 
     @children = children.clone
+    @children.each { |child| child.parent = self }
   end
 
   def to_s
     "< rule: #{rule}, type: '#{type}', children: #{children} >"
+  end
+
+  def parent
+    super()
+  end
+
+  def parent=(other)
+    super(other)
   end
 end

@@ -1,0 +1,26 @@
+__FINAL__ =  [ { directive, number } ], [ { circuit } ], main_circuit; (* must have main circuit all else optional *)
+directive = definekeyword, word, number; (* preproccessor directive for macros *)
+circuit = circuitkeyword, word, lpar, [ arguments ], rpar, block; (* header and body *)
+arguments = word, [ { comma, word } ];
+
+block = lbrace, { statement }, rbrace; (* all the stuff relating to blocks*)
+statement = initialization | assignment | conditional | return;
+initialization = varkeyword, arguments, semicolon;
+assigment = word, assign, expression, semicolon;
+conditional = ifkeyword,lpar,expression,rpar,block,[elsekeyword, block];
+return = returnkeyword, arguments, semicolon;
+
+expression = logicalAndExpression, [ { logicalor, logicalAndExpression } ]; (* expression evaluation *)
+logicalAndExpression = bitOrExpression, [ { logicaland, bitOrExpression } ]; (* operator precidence is lowest are for lowest sub number *)
+bitOrExpression = bitXorExpression, [ { bitor, bitXorExpression } ];
+bitXorExpression = bitAndExpression, [ { bitxor, bitAndExpression } ];
+bitAndExpression = equalityExpression, [ { bitand, equalityExpression } ];
+equalityExpression = comparisonExpression, [ { ( equals | doesnotequal ), comparisonExpression } ];
+comparisonExpression = shiftExpression, [ { ( lessthan | greaterthan), shiftExpression } ];
+shiftExpression = addExpression, [ { ( lshift | rshift), addExpression } ];
+addExpression = timesExpression, [ { ( plus | minus), timesExpression } ];
+timesExpression = term, [ { ( times | over | mod), term } ];
+term = word | number | (lpar, expression, rpar);
+number = hexnumber | decimalnumber;
+
+main_circuit = circuit;
