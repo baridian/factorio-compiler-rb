@@ -40,11 +40,11 @@ class Parse
       # lexeme on the top of the stack (skips ints)
       top_lexeme = last_lexeme(stack)
       # if the top lexeme is a nonterminal and there's an action for it
-      if top_lexeme && (( @nt_syms.include? top_lexeme.type ) && table.action(state, top_lexeme.type).type )
-        action = table.action(state, top_lexeme.type)
-      else # top lexeme is not a nonterminal or there's no action
-        action = table.action(state, lookahead.type)
-      end
+      action = if top_lexeme && ((@nt_syms.include? top_lexeme.type) && table.action(state, top_lexeme.type).type)
+                 table.action(state, top_lexeme.type)
+               else # top lexeme is not a nonterminal or there's no action
+                 action = table.action(state, lookahead.type)
+               end
 
       # execute the action
       case action.type
@@ -81,12 +81,13 @@ class Parse
         done = true
       when nil
         raise "invalid lexeme: #{lookahead}" unless nt_syms.include? lookahead
-        raise %q{
+
+        raise %q(
               invalid lexeme sequence.
               state = #{state}
               lookahead = #{lookahead}
               stack = #{ stack.keep_if { |item| item.is_a? Lexeme }}
-        }
+        )
       end
     end
     # only the final lexeme is on the stack; return it
@@ -396,7 +397,7 @@ class Parse
     end
 
     def hash
-      return to_s.hash
+      to_s.hash
     end
   end
 
@@ -536,7 +537,7 @@ class Parse
     # returns the number of the new state
     def append_state(rposs)
       raise "tried to add new state but found #{rposs.class}" unless rposs.is_a? Array
-      
+
       rposs.each do |rpos|
         raise "tried to add new state but found #{rpos.class} in array" unless rpos.is_a? RulePos
       end

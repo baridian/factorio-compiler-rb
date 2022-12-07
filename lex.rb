@@ -35,8 +35,10 @@ class Lex
   # file to parse and returns an array of LexTokens.
   #
   # Implementation: try all rules against the start of the string.
-  # if anything other than exactly one matches, generate and error and abort.
-  # if only one matches, create the token and add to to_return
+  # if no rule matches, generate and error and abort.
+  # if at least one matches, select the highest rule, create the token and add to to_return
+  # use more specific regexes higher up and generalized ones lower so that the
+  # general rules don't catch everything.
   def run(file)
     file_copy = file.clone.gsub("\n", '')
     to_return = []
