@@ -80,14 +80,10 @@ class Parse
       when :DONE
         done = true
       when nil
-        raise "invalid lexeme: #{lookahead}" unless nt_syms.include? lookahead
+        unless nt_syms.include? lookahead
+          raise "invalid lexeme: #{lookahead}. state = #{state}. stack = #{stack.keep_if { |item| item.is_a? Lexeme }}."
+        end
 
-        raise %q(
-              invalid lexeme sequence.
-              state = #{state}
-              lookahead = #{lookahead}
-              stack = #{ stack.keep_if { |item| item.is_a? Lexeme }}
-        )
       end
     end
     # only the final lexeme is on the stack; return it
@@ -384,7 +380,21 @@ class Parse
     end
 
     def to_s
-      "<rule #{rule}>, <position #{position}>"
+      to_return = ''
+      to_return += rule.lht.to_s + "="
+      rhts_enum = rule.rhts.each
+      position.times do
+        to_return += rhts_enum.next.to_s
+        to_return += ','
+      end
+
+      to_return += '*'
+
+      loop do
+        to_return += rhts_enum.next.to_s
+        to_return += ',' if rhts_enum.any?
+      end
+      to_return
     end
 
     def ==(other)
@@ -550,6 +560,11 @@ class Parse
       "< data #{data} >"
     end
 
+    # prints every rule and position for the state
+    def state_s(cursor)
+      data[cursor[:state]].collect { |rule_pos| "#{rule_pos.to_s}" }.join "\n"
+    end
+
     private
 
     # data is internally implemented as a 2D array of RulePos objects.
@@ -569,8 +584,8 @@ class Parse
       if !cell.type.nil? # cell occupied
         # check that it matches what would be written
         # otherwise error
-        raise "ERROR: state #{cursor[:state]},#{follow} #{cell.type}/REDUCE" unless cell.type == :REDUCE
-        raise "ERROR: state #{cursor[:state]},#{follow} REDUCE/REDUCE" unless cell.value == context.rule(cursor)
+        raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} #{cell.type}/REDUCE" unless cell.type == :REDUCE
+        raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} REDUCE/REDUCE" unless cell.value == context.rule(cursor)
       else # unoccupied
         # write the type and the rule into the cell
         cell.type = :REDUCE
@@ -599,8 +614,8 @@ class Parse
     if !cell.type.nil? # cell occupied
       # check that it matches what would be written
       # otherwise error
-      raise "ERROR: state #{cursor[:state]},#{next_symbol} #{cell.type}/SHIFT" unless cell.type == :SHIFT
-      raise "ERROR: state #{cursor[:state]},#{next_symbol} SHIFT/SHIFT" unless cell.value == next_state_num
+      raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} #{cell.type}/SHIFT" unless cell.type == :SHIFT
+      raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} SHIFT/SHIFT" unless cell.value == next_state_num
     else # cell unoccupied
       # write the type and rule into the cell
       cell.type = :SHIFT
@@ -628,8 +643,8 @@ class Parse
     if !cell.type.nil? # cell occupied
       # check that it matches what would be written
       # otherwise error
-      raise "ERROR: state #{cursor[:state]},#{next_symbol} #{cell.type}/GOTO" unless cell.type == :GOTO
-      raise "ERROR: state #{cursor[:state]},#{next_symbol} GOTO/GOTO" unless cell.value == next_state_num
+      raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} #{cell.type}/GOTO" unless cell.type == :GOTO
+      raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} GOTO/GOTO" unless cell.value == next_state_num
     else # cell unoccupied
       # write the type and rule into the cell
       cell.type = :GOTO

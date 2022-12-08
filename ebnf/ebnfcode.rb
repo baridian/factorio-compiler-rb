@@ -75,13 +75,15 @@ class EbnfCode
             # add the stuff in front to each primitive rule to all the stuff after
             reformat(flatten_rht(rhts_copy[(index + 1)..])).each do |rest_of_terms_prim|
               # add with and without the optional statement
-              to_return << if group_prim.include? '__repeat__'
-                             group_prim
-                           elsif rest_of_terms_prim.include? '__repeat__'
-                             rest_of_terms_prim
-                           else
-                             primitive_call + group_prim + rest_of_terms_prim
-                           end
+              if group_prim.include? '__repeat__'
+                to_return << group_prim
+              elsif rest_of_terms_prim.include? '__repeat__'
+                to_return << rest_of_terms_prim
+              else
+                to_return << primitive_call + group_prim + rest_of_terms_prim
+                to_return << primitive_call + rest_of_terms_prim
+                pop_last = true
+              end
             end
           end
           break # already did all the terms after

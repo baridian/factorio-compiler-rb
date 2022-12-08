@@ -16,11 +16,13 @@ parser = Parse.new parse_defs
 ast = parser.run(lexemes)
 File.write 'parsedefs.txt', EbnfCode.new(ast)
 
-# lex_defs = File.read 'lexdefs.txt'
-# lexer = Lex.new lex_defs
-# lexemes = lexer.run(File.read('input.txt'))
+ lex_defs = File.read 'lexdefs.txt'
+ lexer = Lex.new lex_defs
+ lexemes = lexer.run(File.read('input.txt'))
 
-# parse_defs = File.read 'parsedefs.txt'
-# parser = Parse.new parse_defs
-# ast = parser.run(lexemes)
-# puts CodeGen.new(ast)
+ parse_defs = File.read 'parsedefs.txt'
+ parser = Parse.new parse_defs
+ ast = parser.run(lexemes)
+ puts CodeGen.new(ast)
+
+#File.delete('parsedefs.txt')

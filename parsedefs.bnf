@@ -1,14 +1,16 @@
-__FINAL__ =  [ { directive, number } ], [ { circuit } ], main_circuit; (* must have main circuit all else optional *)
+__FINAL__ =  [ { directive } ], [ { circuit } ], main_circuit; (* must have main circuit all else optional *)
 directive = definekeyword, word, number; (* preproccessor directive for macros *)
-circuit = circuitkeyword, word, lpar, [ arguments ], rpar, block; (* header and body *)
+circuit = circuitkeyword, word, lpar, [ arguments ], rpar, circuitblock; (* header and body *)
 arguments = word, [ { comma, word } ];
 
 block = lbrace, { statement }, rbrace; (* all the stuff relating to blocks*)
 statement = initialization | assignment | conditional | return;
 initialization = varkeyword, arguments, semicolon;
-assigment = word, assign, expression, semicolon;
+assignment = word, assign, expression, semicolon;
 conditional = ifkeyword,lpar,expression,rpar,block,[elsekeyword, block];
 return = returnkeyword, arguments, semicolon;
+
+circuitblock = lbrace, initialization, { assignment | conditional }, return, rbrace;
 
 expression = logicalAndExpression, [ { logicalor, logicalAndExpression } ]; (* expression evaluation *)
 logicalAndExpression = bitOrExpression, [ { logicaland, bitOrExpression } ]; (* operator precidence is lowest are for lowest sub number *)
