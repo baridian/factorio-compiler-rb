@@ -19,16 +19,38 @@ class NonTerminal < Lexeme
     @parent = nil
     @rule = rule
     @type = rule.lht
-    all_lexemes = true
 
-    children.each do |child|
-      all_lexemes = false unless child.is_a? Lexeme
+    unless children.all? { |child| child.is_a? Lexeme }
+      raise ArgumentError.new, 'non-lexeme items passed to NonTerminal'
     end
-
-    raise ArgumentError.new, 'non-lexeme items passed to NonTerminal' unless all_lexemes
 
     @children = children.clone
     @children.each { |child| child.parent = self }
+  end
+
+  # replaces the child lexeme with the new child
+  # updates parent for the new child
+  # updates rule as well
+  def replace_child(child, new_child)
+    # break parent link
+    child.parent = nil
+    # get the index
+    child_index = children.find_index child
+    # replace the child
+    children[child_index] = new_child
+    # set parent value
+    new_child.parent = self
+    # get the new rhts
+    new_rhts = children.collect(&:type)
+    # update rule
+    new_rule = Rule.new(rule.lht, new_rhts)
+    rule = new_rule
+    nil
+  end
+
+  # replace self
+  def replace_with(new_child)
+    parent.replace_child(self, new_child) unless parent == nil
   end
 
   def to_s
@@ -42,4 +64,8 @@ class NonTerminal < Lexeme
   def parent=(other)
     super(other)
   end
+
+  private
+
+  attr_writer :rule, :children
 end

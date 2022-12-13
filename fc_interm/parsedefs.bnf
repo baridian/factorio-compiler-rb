@@ -3,14 +3,15 @@ directive = definekeyword, word, number; (* preproccessor directive for macros *
 circuit = circuitkeyword, word, lpar, [ arguments ], rpar, circuitblock; (* header and body *)
 arguments = word, [ { comma, word } ];
 
-block = lbrace, { statement }, rbrace; (* all the stuff relating to blocks*)
-statement = initialization | assignment | conditional | return;
-initialization = varkeyword, arguments, semicolon;
+initialization = varkeyword, arguments, [ assign, circuitcall ], semicolon; (* init with no value or output of circuit call *)
+circuitcall = word, lpar, arguments, rpar; (* call to a circuit defined elsewhere *)
 assignment = word, assign, expression, semicolon;
 conditional = ifkeyword,lpar,expression,rpar,block,[elsekeyword, block];
+block = lbrace, { statement }, rbrace; (* all the stuff relating to blocks*)
+statement = assignment | conditional;
 return = returnkeyword, arguments, semicolon;
 
-circuitblock = lbrace, initialization, { assignment | conditional }, return, rbrace;
+circuitblock = lbrace, { initialization }, { statement }, return, rbrace;
 
 expression = logicalAndExpression, [ { logicalor, logicalAndExpression } ]; (* expression evaluation *)
 logicalAndExpression = bitOrExpression, [ { logicaland, bitOrExpression } ]; (* operator precidence is lowest are for lowest sub number *)

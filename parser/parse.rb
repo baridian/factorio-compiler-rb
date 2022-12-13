@@ -227,12 +227,12 @@ class Parse
 
     find_starts_for.each do |find_start_for|
       rules.each do |rule|
-        if rule.lht == find_start_for
-          if t_syms.include? rule.rhts.first
-            to_return << rule.rhts.first
-          elsif !find_starts_for.include? rule.rhts.first
-            find_starts_for << rule.rhts.first
-          end
+        next unless rule.lht == find_start_for
+
+        if t_syms.include? rule.rhts.first
+          to_return << rule.rhts.first
+        elsif !find_starts_for.include? rule.rhts.first
+          find_starts_for << rule.rhts.first
         end
       end
     end
@@ -272,24 +272,23 @@ class Parse
         # scan the rule rhts for the symbol to follow
         rule.rhts.each_with_index do |rule_sym, index|
           # if the current symbol is one that follows are needed for
-          if rule_sym == find_follow_for
+          next unless rule_sym == find_follow_for
             # if end of rule
-            if index == rule.rhts.length - 1
-              # add the lht to find_follows_for unless its already there
-              find_follows_for << rule.lht unless find_follows_for.include? rule.lht
-              # if the lht is __FINAL__ add $ to to_return unless its already there
-              to_return << :"$" unless to_return.include? :"$"
-            # else if next symbol is terminal
-            elsif @t_syms.include?(rule.rhts[index + 1])
+          if index == rule.rhts.length - 1
+            # add the lht to find_follows_for unless its already there
+            find_follows_for << rule.lht unless find_follows_for.include? rule.lht
+            # if the lht is __FINAL__ add $ to to_return unless its already there
+            to_return << :"$" unless to_return.include? :"$"
+          # else if next symbol is terminal
+          elsif @t_syms.include?(rule.rhts[index + 1])
+            # add if not already there
+            to_return << rule.rhts[index + 1] unless to_return.include?(rule.rhts[index + 1])
+          # else next symbol is nonterminal
+          else
+            # for each of its starts
+            starts[rule.rhts[index + 1]].each do |t_follow|
               # add if not already there
-              to_return << rule.rhts[index + 1] unless to_return.include?(rule.rhts[index + 1])
-            # else next symbol is nonterminal
-            else
-              # for each of its starts
-              starts[rule.rhts[index + 1]].each do |t_follow|
-                # add if not already there
-                to_return << t_follow unless to_return.include? t_follow
-              end
+              to_return << t_follow unless to_return.include? t_follow
             end
           end
         end
@@ -584,8 +583,12 @@ class Parse
       if !cell.type.nil? # cell occupied
         # check that it matches what would be written
         # otherwise error
-        raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} #{cell.type}/REDUCE" unless cell.type == :REDUCE
-        raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} REDUCE/REDUCE" unless cell.value == context.rule(cursor)
+        unless cell.type == :REDUCE
+          raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} #{cell.type}/REDUCE"
+        end
+        unless cell.value == context.rule(cursor)
+          raise "ERROR: state #{cursor[:state]},#{context.state_s(cursor)} REDUCE/REDUCE"
+        end
       else # unoccupied
         # write the type and the rule into the cell
         cell.type = :REDUCE
