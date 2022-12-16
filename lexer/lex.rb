@@ -43,6 +43,7 @@ class Lex
     file_copy = file.clone.split("\n").join('\n')
     number_of_lines_in_file = file_copy.split('\n', -1).count
     to_return = []
+    has_error = false
     # reduce down the string until emtpy
     while file_copy != ''
       file_copy = file_copy[2..] while file_copy.match?(/^\\n/)
@@ -58,23 +59,34 @@ class Lex
 
       # if invalid match
       if matches.empty?
-        puts 'ERROR: No rules for such input:'
-        puts "^#{file_copy.match(/.*/)}"
-        puts 'please check input and/or lexer rules'
-        to_return = nil
-        file_copy = ''
-      else # valid input
-        match_length = matches[0][:string].length
-        file_copy = file_copy[match_length..] # chop the match off the front
+        has_error = true
 
-        # unless its an ignore statement
-        unless matches.first[:key] == '__IGNORE__'
-          # add the lexeme to the stream
-          lines_remaining = file_copy.split('\n', -1).count
-          to_return << Terminal.new(matches.first[:key], matches.first[:string], number_of_lines_in_file - lines_remaining + 1)
+        lines_remaining = file_copy.split('\n', -1).count
+        puts "lexical error on line #{number_of_lines_in_file - lines_remaining + 1}, starting at #{file_copy.chars.first}"
+        # try to recover
+        matches = []
+        while matches.empty? && !file_copy.empty?
+          file_copy = file_copy[1..]
+          @rules_hash.each_key do |key|
+            pattern = @rules_hash[key]
+
+            matches << { string: file_copy.match(pattern).to_s, key: key } if file_copy.match? pattern
+          end
         end
       end
+
+      match_length = matches[0][:string].length
+      file_copy = file_copy[match_length..] # chop the match off the front
+
+      # unless its an ignore statement
+      unless matches.first[:key] == '__IGNORE__'
+        # add the lexeme to the stream
+        lines_remaining = file_copy.split('\n', -1).count
+        to_return << Terminal.new(matches.first[:key], matches.first[:string], number_of_lines_in_file - lines_remaining + 1)
+      end
     end
+
+    raise "lexical error" if has_error
     to_return << Terminal.new('$', '')
     to_return
   end

@@ -19,7 +19,6 @@ comma=/,/
 doesnotequal=/\!=/
 equals=/==/
 assign=/=/
-not=/\!/
 plus=/\+/
 minus=/\-/
 times=/\*/
