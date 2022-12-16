@@ -40,14 +40,20 @@ class Transformation
   def reduce(lexeme)
     raise 'ERROR: cannot get string unless trees match' unless match? lexeme
 
-    new_lexeme = reduce_rule.call lexeme.children
+    reduce_return = reduce_rule.call lexeme.children
+    if reduce_return.is_a? Array
+      new_lexeme = reduce_return[0]
+      new_lexeme.context = reduce_return[1]
+    else
+      new_lexeme = reduce_return
+    end
 
     raise 'ERROR: reduce rule does not return a terminal' unless new_lexeme.is_a? Terminal
 
     lexeme.replace_with new_lexeme
   end
 
-  private 
-  
+  private
+
   attr_reader :rule, :output_rule, :reduce_rule
 end

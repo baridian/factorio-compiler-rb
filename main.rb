@@ -35,4 +35,4 @@ parser = File.open('fc_interm/parser.rob', 'rb') { |io| Marshal.load(io) }
 ast = parser.run lexemes
 
 generator = CodeGen.new GenDefs.fc_interm
-puts generator.run ast
+File.write 'fc_backend/interm.txt', generator.run(ast)

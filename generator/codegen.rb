@@ -19,6 +19,8 @@ class CodeGen
 
     # loop until ast is nil
     while ast.is_a? NonTerminal
+      raise 'ERROR: no near terminals, cannot reduce' if to_reduce.length.zero?
+
       restart = false
       # for each lexeme to reduce
       to_reduce.each do |lexeme|

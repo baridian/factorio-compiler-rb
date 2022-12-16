@@ -7,6 +7,7 @@ require './lexeme'
 # it also makes up the leaves of the abstract syntax tree
 class Terminal < Lexeme
   attr_reader :content, :type
+  attr_accessor :context
 
   # takes a rule and the part of the input that matched it.
   # converts the rule to a symbol, and the input to a string (if it wasnt already)
@@ -18,6 +19,7 @@ class Terminal < Lexeme
     @content = match_data
     @type = rule_name.to_sym
     @parent = nil
+    @context = '' # needed for passing up data to print
   end
 
   def to_s
