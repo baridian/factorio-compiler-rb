@@ -34,6 +34,8 @@ class Parse
     lookahead = terminals_copy.first
     done = false
     state = 0
+    # flag for panic mode error recovery
+    recovering = false
 
     # while done marker not encountered
     until done
@@ -52,6 +54,7 @@ class Parse
         stack.push state
         state = action.value
       when :SHIFT
+        recovering = false
         stack.push terminals_copy.shift, state
         lookahead = terminals_copy.first
         state = action.value
@@ -66,26 +69,38 @@ class Parse
         reversed_rhts.each do |next_to_pop|
           # pop off the ints and set the next state to the one lowest in the stack
           next_state = stack.pop while stack.last.is_a? Integer
-          # error if rule doesnt match stack (this should never happen)
+
+          # error if rule doesnt match stack this could happen during recovery
           unless stack.last.type == next_to_pop
-            raise "ERROR: tried to apply #{rule}, failed at #{next_to_pop.type}"
+            next if recovering
+            raise "ERROR: tried to apply #{reduce_rule}, failed at #{next_to_pop}"
           end
 
           # add the symbol to children and remove from the stack
           reversed_children << stack.pop
         end
+        # successfully recovered
+        recovering = false
         # create the new nonterminal from the rule and push to the stack
         stack.push NonTerminal.new(reduce_rule, reversed_children.reverse)
         state = next_state
       when :DONE
         done = true
-      when nil
-        unless nt_syms.include? lookahead
-          raise "invalid lexeme: #{lookahead}. state = #{state}. stack = #{stack.keep_if { |item| item.is_a? Lexeme }}."
-        end
+      when nil # panic mode error recovery
+        raise "Unrecoverable error: invalid lexeme #{lookahead}. state = #{state}. Stack = #{stack.keep_if { |item| item.is_a? Lexeme }}." unless last_lexeme(stack)
 
+        if !recovering
+          puts "unexpected '#{lookahead.content}' on line #{lookahead.line_number}. state = #{state}."
+          recovering = true
+          has_error = true
+        else
+          state = stack.pop while stack.last.is_a? Integer
+          stack.pop
+        end
       end
     end
+    raise 'ERROR: syntax error encountered' if has_error
+
     # only the final lexeme is on the stack; return it
     stack.first
   end

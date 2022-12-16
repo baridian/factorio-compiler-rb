@@ -40,10 +40,13 @@ class Lex
   # use more specific regexes higher up and generalized ones lower so that the
   # general rules don't catch everything.
   def run(file)
-    file_copy = file.clone.gsub("\n", '')
+    file_copy = file.clone.split("\n").join('\n')
+    number_of_lines_in_file = file_copy.split('\n', -1).count
     to_return = []
     # reduce down the string until emtpy
     while file_copy != ''
+      file_copy = file_copy[2..] while file_copy.match?(/^\\n/)
+
       # rules that match the input
       matches = []
       # check each rule, add if match
@@ -67,7 +70,8 @@ class Lex
         # unless its an ignore statement
         unless matches.first[:key] == '__IGNORE__'
           # add the lexeme to the stream
-          to_return << Terminal.new(matches.first[:key], matches.first[:string])
+          lines_remaining = file_copy.split('\n', -1).count
+          to_return << Terminal.new(matches.first[:key], matches.first[:string], number_of_lines_in_file - lines_remaining + 1)
         end
       end
     end
