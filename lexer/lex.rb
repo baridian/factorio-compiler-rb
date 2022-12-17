@@ -40,7 +40,7 @@ class Lex
   # use more specific regexes higher up and generalized ones lower so that the
   # general rules don't catch everything.
   def run(file)
-    file_copy = file.clone.split("\n").join('\n')
+    file_copy = file.clone.gsub('\n','').split("\n").join('\n')
     number_of_lines_in_file = file_copy.split('\n', -1).count
     to_return = []
     has_error = false
@@ -62,7 +62,8 @@ class Lex
         has_error = true
 
         lines_remaining = file_copy.split('\n', -1).count
-        puts "lexical error on line #{number_of_lines_in_file - lines_remaining + 1}, starting at #{file_copy.chars.first}"
+        line_num = number_of_lines_in_file - lines_remaining + 1
+        puts "lexical error on line #{line_num}, starting at #{file_copy.chars.first}"
         # try to recover
         matches = []
         while matches.empty? && !file_copy.empty?

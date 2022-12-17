@@ -58,6 +58,7 @@ circuit memcell(set,enable,input)
 circuit counter(enable)
 {
   var mem, output;
+  var counter_clock = clock();
   if(mem < STEP_LIMIT * 2)
   {
     if(mem % 2 == 0 && enable == 0)
@@ -75,7 +76,7 @@ circuit counter(enable)
     mem = 0;
   }
 
-  output = mem / 2;
+  output = mem / 2 ;
 
   return finalOutput;
 }

@@ -16,6 +16,7 @@ arguments=word
 initialization=varkeyword,arguments,assign,circuitcall,semicolon
 initialization=varkeyword,arguments,semicolon
 circuitcall=word,lpar,arguments,rpar
+circuitcall=word,lpar,rpar
 assignment=word,assign,expression,semicolon
 conditional=ifkeyword,lpar,expression,rpar,block,elsekeyword,block
 conditional=ifkeyword,lpar,expression,rpar,block

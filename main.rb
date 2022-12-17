@@ -4,6 +4,7 @@ require './lexer/lex'
 require './parser/parse'
 require './generator/gendefs'
 require './generator/codegen'
+require './fc_backend/optimizer'
 
 BUILD_BBNF = false
 
@@ -35,4 +36,6 @@ parser = File.open('fc_interm/parser.rob', 'rb') { |io| Marshal.load(io) }
 ast = parser.run lexemes
 
 generator = CodeGen.new GenDefs.fc_interm
-File.write 'fc_backend/interm.txt', generator.run(ast)
+fc_interm = generator.run(ast) # unoptimized / unexpanded
+fc_interm = Optimizer.optimize(fc_interm) # unexpanded
+File.write 'fc_backend/interm.txt', fc_interm

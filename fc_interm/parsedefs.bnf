@@ -4,7 +4,7 @@ circuit = circuitkeyword, word, lpar, [ arguments ], rpar, circuitblock; (* head
 arguments = word, [ { comma, word } ];
 
 initialization = varkeyword, arguments, [ assign, circuitcall ], semicolon; (* init with no value or output of circuit call *)
-circuitcall = word, lpar, arguments, rpar; (* call to a circuit defined elsewhere *)
+circuitcall = word, lpar, [ arguments ], rpar; (* call to a circuit defined elsewhere *)
 assignment = word, assign, expression, semicolon;
 conditional = ifkeyword,lpar,expression,rpar,block,[elsekeyword, block];
 block = lbrace, { statement }, rbrace; (* all the stuff relating to blocks*)

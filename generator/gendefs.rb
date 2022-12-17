@@ -302,10 +302,16 @@ module GenDefs
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
 
+    rule = Rule.new :circuitcall, %i[word lpar rpar]
+    reduce_rule = lambda do |children|
+      Terminal.new('circuitcall_terminal', "#{children[0].content}()")
+    end
+    to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
+
     rule = Rule.new :assignment, %i[word assign expression_terminal semicolon]
     reduce_rule = lambda do |children|
       new_terminal = Terminal.new('assignment_terminal', children[0].content)
-      new_context = children[2].context.split("\n").collect do |line|
+      new_context = children[2].context.split("\n").reject(&:empty?).collect do |line|
         if line.match? ':'
           line
         else
@@ -319,14 +325,14 @@ module GenDefs
     rule = Rule.new :conditional, %i[ifkeyword lpar expression_terminal rpar block_terminal elsekeyword block_terminal]
     reduce_rule = lambda do |children|
       conditional_eval = children[2].content
-      pass_circuit = "c#{children[4].hash}:"
-      fail_circuit = "c#{children[6].hash}:"
+      pass_circuit = "c#{children[4].hash.abs}:"
+      fail_circuit = "c#{children[6].hash.abs}:"
       new_context = children[2].context.split("\n").collect do |line|
         "replace:#{line}"
       end.join("\n") + "\n"
 
       new_context += "#{pass_circuit}E*=#{conditional_eval}!=0\n"
-      new_context += children[4].context.split("\n").collect do |line|
+      new_context += children[4].context.split("\n").reject(&:empty?).collect do |line|
         if line.match? '<-'
           line
         elsif line.match? 'replace:'
@@ -337,7 +343,7 @@ module GenDefs
         end
       end.join("\n") + "\n"
       new_context += "#{fail_circuit}E*=#{conditional_eval}==0\n"
-      new_context += children[6].context.split("\n").collect do |line|
+      new_context += children[6].context.split("\n").reject(&:empty?).collect do |line|
         if line.match? '<-'
           line
         else
@@ -352,12 +358,12 @@ module GenDefs
     rule = Rule.new :conditional, %i[ifkeyword lpar expression_terminal rpar block_terminal]
     reduce_rule = lambda do |children|
       conditional_eval = children[2].content
-      new_circuit = "c#{children.hash}:"
+      new_circuit = "c#{children.hash.abs}:"
       new_context = children[2].context.split("\n").collect do |line|
         "replace:#{line}"
       end.join("\n") + "\n"
       new_context += "#{new_circuit}E*=#{conditional_eval}!=0\n"
-      new_context += children[4].context.split("\n").collect do |line|
+      new_context += children[4].context.split("\n").reject(&:empty?).collect do |line|
         if line.match? '<-'
           line
         elsif line.match? 'replace:'
@@ -444,8 +450,8 @@ module GenDefs
 
     rule = Rule.new :logicalorlogicalAndExpressions, %i[logicalorlogicalAndExpressions_terminal logicalor logicalAndExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('logicalorlogicalAndExpressions_terminal', "t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}||#{children[1].content}\n"
+      new_terminal = Terminal.new('logicalorlogicalAndExpressions_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}||#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -460,8 +466,8 @@ module GenDefs
 
     rule = Rule.new :expression, %i[logicalAndExpression_terminal logicalorlogicalAndExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('expression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}||#{children[1].content}\n"
+      new_terminal = Terminal.new('expression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}||#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -476,8 +482,8 @@ module GenDefs
 
     rule = Rule.new :logicalandbitOrExpressions, %i[logicalandbitOrExpressions_terminal logicaland bitOrExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('logicalandbitOrExpressions_terminal', "t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}&&#{children[2].content}\n"
+      new_terminal = Terminal.new('logicalandbitOrExpressions_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}&&#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -492,8 +498,8 @@ module GenDefs
 
     rule = Rule.new :logicalAndExpression, %i[bitOrExpression_terminal logicalandbitOrExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('logicalAndExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}&&#{children[1].content}\n"
+      new_terminal = Terminal.new('logicalAndExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}&&#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -508,8 +514,8 @@ module GenDefs
 
     rule = Rule.new :bitorbitXorExpressions, %i[bitorbitXorExpressions_terminal bitor bitXorExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitorbitXorExpressions_terminal', "t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}|#{children[2].content}\n"
+      new_terminal = Terminal.new('bitorbitXorExpressions_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}|#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -524,8 +530,8 @@ module GenDefs
 
     rule = Rule.new :bitOrExpression, %i[bitXorExpression_terminal bitorbitXorExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitOrExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}|#{children[1].content}\n"
+      new_terminal = Terminal.new('bitOrExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}|#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -540,8 +546,8 @@ module GenDefs
 
     rule = Rule.new :bitxorbitAndExpressions, %i[bitxorbitAndExpressions_terminal bitxor bitAndExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitxorbitAndExpressions_terminal', "t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}^#{children[2].content}\n"
+      new_terminal = Terminal.new('bitxorbitAndExpressions_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}^#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -556,8 +562,8 @@ module GenDefs
 
     rule = Rule.new :bitXorExpression, %i[bitAndExpression_terminal bitxorbitAndExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitXorExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}^#{children[1].content}\n"
+      new_terminal = Terminal.new('bitXorExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}^#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -572,8 +578,8 @@ module GenDefs
 
     rule = Rule.new :bitandequalityExpressions, %i[bitandequalityExpressions_terminal bitand equalityExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitandequalityExpressions_terminal', "t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}&#{children[2].content}\n"
+      new_terminal = Terminal.new('bitandequalityExpressions_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}&#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -588,8 +594,8 @@ module GenDefs
 
     rule = Rule.new :bitAndExpression, %i[equalityExpression_terminal bitandequalityExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('bitAndExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}&#{children[1].content}\n"
+      new_terminal = Terminal.new('bitAndExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}&#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -604,8 +610,8 @@ module GenDefs
 
     rule = Rule.new :equalscomparisonExpressiondoesnotequalcomparisonExpressions, %i[equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal equals comparisonExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal', "#{children[0].slice(0...2)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].slice(2..).content}==#{children[2].content}\n"
+      new_terminal = Terminal.new('equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal', "#{children[0].slice(0...2)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].slice(2..).content}==#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -620,8 +626,8 @@ module GenDefs
 
     rule = Rule.new :equalscomparisonExpressiondoesnotequalcomparisonExpressions, %i[equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal doesnotequal comparisonExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal', "#{children[0].slice(0...2)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content}!=#{children[2].content}\n"
+      new_terminal = Terminal.new('equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal', "#{children[0].slice(0...2)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content}!=#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -636,8 +642,8 @@ module GenDefs
 
     rule = Rule.new :equalityExpression, %i[comparisonExpression_terminal equalscomparisonExpressiondoesnotequalcomparisonExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('equalityExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}#{children[1].content}\n"
+      new_terminal = Terminal.new('equalityExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -652,8 +658,8 @@ module GenDefs
 
     rule = Rule.new :lessthanshiftExpressiongreaterthanshiftExpressions, %i[lessthanshiftExpressiongreaterthanshiftExpressions_terminal lessthan shiftExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('lessthanshiftExpressiongreaterthanshiftExpressions_terminal', "#{children[0].slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}<#{children[2].content}\n"
+      new_terminal = Terminal.new('lessthanshiftExpressiongreaterthanshiftExpressions_terminal', "#{children[0].slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}<#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -668,8 +674,8 @@ module GenDefs
 
     rule = Rule.new :lessthanshiftExpressiongreaterthanshiftExpressions, %i[lessthanshiftExpressiongreaterthanshiftExpressions_terminal greaterthan shiftExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('lessthanshiftExpressiongreaterthanshiftExpressions_terminal', "#{children[0].slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}>#{children[2].content}\n"
+      new_terminal = Terminal.new('lessthanshiftExpressiongreaterthanshiftExpressions_terminal', "#{children[0].slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}>#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -684,8 +690,8 @@ module GenDefs
 
     rule = Rule.new :comparisonExpression, %i[shiftExpression_terminal lessthanshiftExpressiongreaterthanshiftExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('comparisonExpression_terminal', "t#{children.hash}")
-      new_context = children[1].context + "t#{children.hash}=#{children[0].content}#{children[1].content}\n"
+      new_terminal = Terminal.new('comparisonExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[1].context + "t#{children.hash.abs}=#{children[0].content}#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -700,8 +706,8 @@ module GenDefs
 
     rule = Rule.new :lshiftaddExpressionrshiftaddExpressions, %i[lshiftaddExpressionrshiftaddExpressions_terminal lshift addExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('lshiftaddExpressionrshiftaddExpressions_terminal', "#{children[0].content.slice(0...2)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(2..)}<<#{children[2].content}\n"
+      new_terminal = Terminal.new('lshiftaddExpressionrshiftaddExpressions_terminal', "#{children[0].content.slice(0...2)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(2..)}<<#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -716,8 +722,8 @@ module GenDefs
 
     rule = Rule.new :lshiftaddExpressionrshiftaddExpressions, %i[lshiftaddExpressionrshiftaddExpressions_terminal rshift addExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('lshiftaddExpressionrshiftaddExpressions_terminal', "#{children[0].content.slice(0...2)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(2..)}>>#{children[2].content}\n"
+      new_terminal = Terminal.new('lshiftaddExpressionrshiftaddExpressions_terminal', "#{children[0].content.slice(0...2)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(2..)}>>#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -732,8 +738,8 @@ module GenDefs
 
     rule = Rule.new :shiftExpression, %i[addExpression_terminal lshiftaddExpressionrshiftaddExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('shiftExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0]}#{children[1]}\n"
+      new_terminal = Terminal.new('shiftExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0]}#{children[1]}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -748,8 +754,8 @@ module GenDefs
 
     rule = Rule.new :plustimesExpressionminustimesExpressions, %i[plustimesExpressionminustimesExpressions_terminal plus timesExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('plustimesExpressionminustimesExpressions_terminal', "#{children[0].content.slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}+#{children[2].content}\n"
+      new_terminal = Terminal.new('plustimesExpressionminustimesExpressions_terminal', "#{children[0].content.slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}+#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -764,8 +770,8 @@ module GenDefs
 
     rule = Rule.new :plustimesExpressionminustimesExpressions, %i[plustimesExpressionminustimesExpressions_terminal minus timesExpression_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('plustimesExpressionminustimesExpressions_terminal', "#{children[0].content.slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}-#{children[2].content}\n"
+      new_terminal = Terminal.new('plustimesExpressionminustimesExpressions_terminal', "#{children[0].content.slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}-#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -780,8 +786,8 @@ module GenDefs
 
     rule = Rule.new :addExpression, %i[timesExpression_terminal plustimesExpressionminustimesExpressions_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('addExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}#{children[1].content}\n"
+      new_terminal = Terminal.new('addExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -796,8 +802,8 @@ module GenDefs
 
     rule = Rule.new :timestermovertermmodterms, %i[timestermovertermmodterms_terminal times term_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}*#{children[2].content}\n"
+      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}*#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -812,8 +818,8 @@ module GenDefs
 
     rule = Rule.new :timestermovertermmodterms, %i[timestermovertermmodterms_terminal over term_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}/#{children[2].content}\n"
+      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}/#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -828,8 +834,8 @@ module GenDefs
 
     rule = Rule.new :timestermovertermmodterms, %i[timestermovertermmodterms_terminal mod term_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash}")
-      new_context = children[0].context + "t#{children.hash}=#{children[0].content.slice(1..)}%#{children[2].content}\n"
+      new_terminal = Terminal.new('timestermovertermmodterms_terminal', "#{children[0].content.slice(0)}t#{children.hash.abs}")
+      new_context = children[0].context + "t#{children.hash.abs}=#{children[0].content.slice(1..)}%#{children[2].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
@@ -844,8 +850,8 @@ module GenDefs
 
     rule = Rule.new :timesExpression, %i[term_terminal timestermovertermmodterms_terminal]
     reduce_rule = lambda do |children|
-      new_terminal = Terminal.new('timesExpression_terminal', "t#{children.hash}")
-      new_context = children[0].context + children[1].context + "t#{children.hash}=#{children[0].content}#{children[1].content}\n"
+      new_terminal = Terminal.new('timesExpression_terminal', "t#{children.hash.abs}")
+      new_context = children[0].context + children[1].context + "t#{children.hash.abs}=#{children[0].content}#{children[1].content}\n"
       [new_terminal, new_context]
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
