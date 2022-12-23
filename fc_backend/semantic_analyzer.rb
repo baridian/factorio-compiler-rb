@@ -179,11 +179,11 @@ module SemanticAnalyzer
       unless circuit.lines[0].match? "CRC"
         new_lines = []
         circuit = circuit.lines.each_with_index do |line, line_num|
-          if line_num == 0
-            new_lines << "CRC #{line}"
-          else
-            new_lines << line
-          end
+          new_lines << if line_num == 0
+                         "CRC #{line}"
+                       else
+                         new_lines << line
+                       end
         end
 
         circuit = new_lines.join "\n"
@@ -248,7 +248,7 @@ module SemanticAnalyzer
       circuit_calls = file.scan(/^INIT.*=.*$/)
     end
 
-    file.gsub! /^CRC.*?$/, ''
+    file.gsub!(/^CRC.*?$/, '')
 
     file.split("\n").reject(&:empty?).join("\n")
   end
