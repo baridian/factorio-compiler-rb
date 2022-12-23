@@ -176,7 +176,18 @@ module SemanticAnalyzer
       end.join("\n")
 
       circuit.gsub!(/^.*?RET.*?$/, return_replacement)
-      circuit = circuit.split("\n")[1..].join("\n")
+      unless circuit.lines[0].match? "CRC"
+        new_lines = []
+        circuit = circuit.lines.each_with_index do |line, line_num|
+          if line_num == 0
+            new_lines << "CRC #{line}"
+          else
+            new_lines << line
+          end
+        end
+
+        circuit = new_lines.join "\n"
+      end
     elsif rehash || args || return_vals || caller_name
       raise 'ERROR: must pass only circuit or all 4 arguments to format_circuit'
     end
@@ -210,7 +221,7 @@ module SemanticAnalyzer
       # find the call pattern that appears last. Split the input into what appears before and after
       # looking through only what appears before, find the last occurence of a circuit name
       # take only the name of it
-      caller_name = input_file.split(last_call_pattern).first.match(/(.|\n)*\K^CRC \w+$/).to_s.match(/(?<=CRC )\w+/).to_s
+      caller_name = file.split(last_call_pattern).first.match(/(.|\n)*\K^CRC \w+$/).to_s.match(/(?<=CRC )\w+/).to_s
 
       last_call = circuit_calls.last
 
@@ -230,7 +241,7 @@ module SemanticAnalyzer
       vals = last_call.match(/(?<=INIT ).*(?==)/).to_s.split ','
 
       # insert the circuit instance at the top of the file
-      file = format_circuit(circuits_by_name[calling_name], lines_from_bottom, args, vals, caller_name) + "\n" + file
+      file = "#{format_circuit(circuits_by_name[calling_name], lines_from_bottom, args, vals, caller_name)}\n#{file}"
 
       file.gsub! last_call_pattern, ''
 

@@ -38,6 +38,8 @@ circuit memcell(set,enable,input)
 {
   var mem, output;
 
+  var memcell_set, memcell_enable = clock();
+
   if(set > 0)
   {
     mem = input;
