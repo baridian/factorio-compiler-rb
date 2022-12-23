@@ -298,7 +298,7 @@ module GenDefs
 
     rule = Rule.new :circuitcall, %i[word lpar arguments_terminal rpar]
     reduce_rule = lambda do |children|
-      Terminal.new('circuitcall_terminal', "#{children[0].content}(#{children[2]})")
+      Terminal.new('circuitcall_terminal', "#{children[0].content}(#{children[2].content})")
     end
     to_return << Transformation.new(rule, ->(_) { '' }, reduce_rule)
 

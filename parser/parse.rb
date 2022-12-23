@@ -576,7 +576,7 @@ class Parse
 
     # prints every rule and position for the state
     def state_s(cursor)
-      data[cursor[:state]].collect { |rule_pos| "#{rule_pos.to_s}" }.join "\n"
+      data[cursor[:state]].collect(&:to_s).join "\n"
     end
 
     private
