@@ -178,7 +178,7 @@ module SemanticAnalyzer
       circuit.gsub!(/^.*?RET.*?$/, return_replacement)
       unless circuit.lines[0].match? "CRC"
         new_lines = []
-        circuit = circuit.lines.each_with_index do |line, line_num|
+        circuit.lines.each_with_index do |line, line_num|
           new_lines << if line_num == 0
                          "CRC #{line}"
                        else
